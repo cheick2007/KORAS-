@@ -1,8 +1,8 @@
-# 🚀 Démarrage Rapide - Backend Koras
+﻿# Dmarrage Rapide - Backend Koras
 
-## Vous Êtes ICI : `d:\STARTUP\koras\backend`
+## Vous tes ICI : `d:\STARTUP\koras\backend`
 
-### ⚡ Solution Ultra-Rapide
+### Solution Ultra-Rapide
 
 ```powershell
 # 1. Installer Gradle avec Chocolatey
@@ -12,52 +12,52 @@ choco install gradle
 gradle :backend-services:run
 ```
 
-**C'est tout ! L'API sera sur http://localhost:8080** 🎉
+**C'est tout ! L'API sera sur http://localhost:8080**
 
 ---
 
-## 📋 Étapes Détaillées
+## tapes Dtailles
 
-### Étape 1 : Installer Chocolatey (si nécessaire)
+### tape 1 : Installer Chocolatey (si ncessaire)
 
 Chocolatey est un gestionnaire de paquets pour Windows (comme apt sur Linux).
 
 **Ouvrir PowerShell en Administrateur :**
-1. Clic droit sur le bouton Démarrer
-2. Sélectionner "Windows PowerShell (Admin)" ou "Terminal (Admin)"
+1. Clic droit sur le bouton Dmarrer
+2. Slectionner "Windows PowerShell (Admin)" ou "Terminal (Admin)"
 
-**Exécuter :**
+**Excuter :**
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 ```
 
-### Étape 2 : Installer Gradle
+### tape 2 : Installer Gradle
 
 ```powershell
 choco install gradle
 ```
 
-**Vérifier l'installation :**
+**Vrifier l'installation :**
 ```powershell
 gradle --version
 # Devrait afficher: Gradle 8.x
 ```
 
-### Étape 3 : Compiler et Lancer
+### tape 3 : Compiler et Lancer
 
 ```powershell
 cd d:\STARTUP\koras\backend
 gradle :backend-services:run
 ```
 
-**Résultat attendu :**
+**Rsultat attendu :**
 ```
 > Task :backend-services:run
-🚀 Démarrage de l'assistant vocal Koras...
-✅ Application Koras démarrée sur http://0.0.0.0:8080
+Dmarrage de l'assistant vocal Koras...
+Application Koras dmarre sur http://0.0.0.0:8080
 ```
 
-### Étape 4 : Vérifier que ça fonctionne
+### tape 4 : Vrifier que a fonctionne
 
 Ouvrir un **autre terminal** :
 
@@ -65,18 +65,18 @@ Ouvrir un **autre terminal** :
 curl http://localhost:8080/health
 ```
 
-**Réponse attendue :**
+**Rponse attendue :**
 ```json
 {
-  "status": "UP",
-  "timestamp": "2024-12-20T...",
-  "version": "1.0.0"
+"status": "UP",
+"timestamp": "2024-12-20T...",
+"version": "1.0.0"
 }
 ```
 
 ---
 
-## 🎯 Commandes Utiles
+## Commandes Utiles
 
 ```powershell
 # Compiler sans lancer
@@ -88,18 +88,18 @@ gradle test
 # Nettoyer et recompiler
 gradle clean build
 
-# Arrêter l'application
+# Arrter l'application
 Ctrl + C dans le terminal
 ```
 
 ---
 
-## 🚨 Problèmes Courants
+## Problmes Courants
 
 ### "gradle: command not found"
-**Solution :** Fermez et rouvrez PowerShell après l'installation de Gradle
+**Solution :** Fermez et rouvrez PowerShell aprs l'installation de Gradle
 
-### "Port 8080 déjà utilisé"
+### "Port 8080 dj utilis"
 **Solution :**
 ```powershell
 netstat -ano | findstr :8080
@@ -112,23 +112,23 @@ taskkill /PID <PID> /F
 choco install temurin17
 ```
 
-### Gradle télécharge des dépendances (long)
-**Normal :** Première fois seulement. Patience (~2-5 minutes)
+### Gradle tlcharge des dpendances (long)
+**Normal :** Premire fois seulement. Patience (~2-5 minutes)
 
 ---
 
-## ✅ Checklist
+## Checklist
 
-- [ ] Chocolatey installé
-- [ ] Gradle installé (`gradle --version` fonctionne)
-- [ ] Java 17+ installé (`java -version` affiche 17+)
+- [ ] Chocolatey install
+- [ ] Gradle install (`gradle --version` fonctionne)
+- [ ] Java 17+ install (`java -version` affiche 17+)
 - [ ] Dans le bon dossier (`cd d:\STARTUP\koras\backend`)
 - [ ] Lancer : `gradle :backend-services:run`
 - [ ] Tester : `curl http://localhost:8080/health`
 
 ---
 
-## 🎉 C'Est Parti !
+## C'Est Parti !
 
 **Une seule commande :**
 

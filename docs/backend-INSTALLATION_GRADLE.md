@@ -1,21 +1,21 @@
-# Installation Gradle (Solution au problème SSL)
+﻿# Installation Gradle (Solution au problme SSL)
 
-## Problème Rencontré
+## Problme Rencontr
 
-Le Gradle wrapper échoue à télécharger Gradle depuis `services.gradle.org` à cause d'un problème de certificat SSL.
+Le Gradle wrapper choue tlcharger Gradle depuis `services.gradle.org` cause d'un problme de certificat SSL.
 
-## ✅ Solutions (Choisir UNE méthode)
+## Solutions (Choisir UNE mthode)
 
-### Solution 1 : Installer Gradle avec Chocolatey (Recommandé)
+### Solution 1 : Installer Gradle avec Chocolatey (Recommand)
 
 ```powershell
-# Installer Chocolatey si pas déjà fait
+# Installer Chocolatey si pas dj fait
 # Voir : https://chocolatey.org/install
 
 # Installer Gradle
 choco install gradle --version=8.5
 
-# Vérifier
+# Vrifier
 gradle --version
 ```
 
@@ -26,39 +26,39 @@ gradle build
 gradle :backend-services:run
 ```
 
-### Solution 2 : Télécharger Gradle Manuellement
+### Solution 2 : Tlcharger Gradle Manuellement
 
-1. **Télécharger** : [https://gradle.org/releases/](https://gradle.org/releases/)
-   - Choisir : gradle-8.5-bin.zip
+1. **Tlcharger** : [https://gradle.org/releases/](https://gradle.org/releases/)
+- Choisir : gradle-8.5-bin.zip
 
 2. **Extraire** dans `C:\gradle-8.5`
 
 3. **Ajouter au PATH** :
-   ```powershell
-   $env:Path += ";C:\gradle-8.5\bin"
-   # Ou ajouter de façon permanente via Panneau de configuration
-   ```
+```powershell
+$env:Path += ";C:\gradle-8.5\bin"
+# Ou ajouter de faon permanente via Panneau de configuration
+```
 
-4. **Vérifier** :
-   ```powershell
-   gradle --version
-   ```
+4. **Vrifier** :
+```powershell
+gradle --version
+```
 
 5. **Compiler** :
-   ```powershell
-   cd d:\STARTUP\koras\backend
-   gradle build
-   gradle :backend-services:run
-   ```
+```powershell
+cd d:\STARTUP\koras\backend
+gradle build
+gradle :backend-services:run
+```
 
-### Solution 3 : Utiliser Gradle existant pour générer le wrapper
+### Solution 3 : Utiliser Gradle existant pour gnrer le wrapper
 
-Si Gradle est déjà installé sur votre système :
+Si Gradle est dj install sur votre systme :
 
 ```powershell
 cd d:\STARTUP\koras\backend
 
-# Générer wrapper avec Gradle installé
+# Gnrer wrapper avec Gradle install
 gradle wrapper --gradle-version 8.5
 
 # Puis utiliser le wrapper
@@ -73,15 +73,15 @@ Si vous avez Gradle 8.5 dans un autre projet :
 # Copier le dossier .gradle depuis un projet fonctionnel
 copy C:\autre-projet\.gradle d:\STARTUP\koras\backend\.gradle /s
 
-# Puis réessayer
+# Puis ressayer
 .\gradlew.bat build
 ```
 
 ### Solution 5 : Configuration Proxy/SSL (Si dans environnement d'entreprise)
 
-Si vous êtes derrière un proxy d'entreprise :
+Si vous tes derrire un proxy d'entreprise :
 
-1. Créer `gradle.properties` :
+1. Crer `gradle.properties` :
 ```properties
 # d:\STARTUP\koras\backend\gradle.properties
 systemProp.http.proxyHost=proxy.entreprise.com
@@ -89,19 +89,19 @@ systemProp.http.proxyPort=8080
 systemProp.https.proxyHost=proxy.entreprise.com
 systemProp.https.proxyPort=8080
 
-# Si authentification nécessaire
+# Si authentification ncessaire
 systemProp.http.proxyUser=username
 systemProp.http.proxyPassword=password
 systemProp.https.proxyUser=username
 systemProp.https.proxyPassword=password
 ```
 
-2. Réessayer :
+2. Ressayer :
 ```powershell
 .\gradlew.bat build
 ```
 
-## 🎯 Une Fois Gradle Fonctionnel
+## Une Fois Gradle Fonctionnel
 
 ```powershell
 # Compiler
@@ -120,43 +120,43 @@ gradle test
 .\gradlew.bat test
 ```
 
-## ⚡ Alternative Sans Gradle : Compiler Manuellement
+## Alternative Sans Gradle : Compiler Manuellement
 
-Si vraiment bloqué, compiler avec `kotlinc` (nécessite Kotlin compilateur) :
+Si vraiment bloqu, compiler avec `kotlinc` (ncessite Kotlin compilateur) :
 
 ```powershell
-# Télécharger Kotlin : https://kotlinlang.org/docs/command-line.html
+# Tlcharger Kotlin : https://kotlinlang.org/docs/command-line.html
 
 # Compiler le domaine
 kotlinc -d domaine\build\classes domaine\src\main\kotlin\**\*.kt
 
-# Compiler les services (avec dépendances)
+# Compiler les services (avec dpendances)
 kotlinc -cp "domaine\build\classes;libs\*" -d backend-services\build\classes backend-services\src\main\kotlin\**\*.kt
 
 # Lancer
 java -cp "domaine\build\classes;backend-services\build\classes;libs\*" com.koras.assistantvocal.ApplicationKt
 ```
 
-**Note** : Cette méthode nécessite de télécharger toutes les dépendances (Ktor, etc.) manuellement.
+**Note** : Cette mthode ncessite de tlcharger toutes les dpendances (Ktor, etc.) manuellement.
 
-## 🆘 Support
+## Support
 
 ### Erreur : "Gradle not found"
-→ Utilisez Solution 1 ou 2 ci-dessus
+Utilisez Solution 1 ou 2 ci-dessus
 
 ### Erreur : "SSL certificate problem"
-→ Utilisez Solution 5 (proxy) ou téléchargez manuellement (Solution 2)
+Utilisez Solution 5 (proxy) ou tlchargez manuellement (Solution 2)
 
 ### Erreur : "Cannot download distribution"
-→ Téléchargez manuellement depuis https://gradle.org/releases/
+Tlchargez manuellement depuis https://gradle.org/releases/
 
 ### Besoin d'aide ?
-Vérifiez :
-1. Java installé ? `java -version` (doit afficher 17+)
+Vrifiez :
+1. Java install ? `java -version` (doit afficher 17+)
 2. Proxy/firewall ? Configurez `gradle.properties`
-3. Téléchargement manuel possible ?
+3. Tlchargement manuel possible ?
 
-## ✅ Vérification Installation Réussie
+## Vrification Installation Russie
 
 ```powershell
 gradle --version
@@ -164,16 +164,16 @@ gradle --version
 # ------------------------------------------------------------
 # Gradle 8.5
 # ------------------------------------------------------------
-# Build time:   ...
-# Revision:     ...
-# Kotlin:       1.9.20
-# Groovy:       3.0.19
-# Ant:          Apache Ant(TM) version 1.10.13
-# JVM:          17.x.x (...)
-# OS:           Windows ...
+# Build time: ...
+# Revision: ...
+# Kotlin: 1.9.20
+# Groovy: 3.0.19
+# Ant: Apache Ant(TM) version 1.10.13
+# JVM: 17.x.x (...)
+# OS: Windows ...
 ```
 
-## 🚀 Après Installation
+## Aprs Installation
 
 1. **Compiler** :
 ```powershell
@@ -193,7 +193,7 @@ curl http://localhost:8080/health
 
 ---
 
-**Choisissez la Solution 1 (Chocolatey) pour plus de simplicité !**
+**Choisissez la Solution 1 (Chocolatey) pour plus de simplicit !**
 
 ```powershell
 choco install gradle --version=8.5
