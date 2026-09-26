@@ -15,6 +15,9 @@ dependencies {
     implementation("io.ktor:ktor-server-auth:2.3.7")
     implementation("io.ktor:ktor-server-auth-jwt:2.3.7")
     
+    // JWT (Auth0)
+    implementation("com.auth0:java-jwt:4.4.0")
+    
     // Ktor Client
     implementation("io.ktor:ktor-client-core:2.3.7")
     implementation("io.ktor:ktor-client-cio:2.3.7")

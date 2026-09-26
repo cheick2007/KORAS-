@@ -1,8 +1,8 @@
 # Status du Backend Assistant Vocal
 
 **Date**: 2024-12-20  
-**Session**: 4  
-**Progression**: 42% (10/24 tâches complètes)
+**Session**: 5  
+**Progression**: 46% (11/24 tâches complètes)
 
 ## Tâches Complètes ✅
 
@@ -65,28 +65,38 @@
   - Synchronisation thread-safe
   - Tests propriété 3 (intégrité, 50 scénarios)
 
+### Phase 5 : Gateway API (Tâches 11-13) 🔄 EN COURS
+- ✅ **Tâche 11** : API REST avec Ktor ⭐ NOUVEAU
+  - 6 routes REST (5 authentifiées + /health public)
+  - Service authentification JWT (HMAC-SHA256, rotation)
+  - Rate limiter sliding window (10-100 req/min)
+  - Tests propriétés 5 (auth) + 6 (rate limiting)
+  - 150+ scénarios testés
+
 ## Propriétés Validées (10/10) ✅
 
 1. ✅ **Propriété 1** : Round-trip parsing (format → parse → identité)
 2. ✅ **Propriété 2** : Idempotence exécutions (N exec = 1 résultat)
 3. ✅ **Propriété 3** : Intégrité journal audit (hash chain inviolable)
 4. ✅ **Propriété 4** : Invariants structurels plans (étapes, estimation)
-5. ✅ **Propriété 7** : Préservation entités (extraction complète)
-6. ✅ **Propriété 8** : Round-trip encryption (chiffrer → déchiffrer = identité)
-7. ✅ **Propriété 9** : Seuil confiance NLU (rejet < 70%)
-8. ✅ **Propriété 10** : Conservation étapes (comptabilisation exacte)
+5. ✅ **Propriété 5** : Authentification obligatoire (JWT vérifié) ⭐ NOUVEAU
+6. ✅ **Propriété 6** : Rate limiting respecté (quotas par user/endpoint) ⭐ NOUVEAU
+7. ✅ **Propriété 7** : Préservation entités (extraction complète)
+8. ✅ **Propriété 8** : Round-trip encryption (chiffrer → déchiffrer = identité)
+9. ✅ **Propriété 9** : Seuil confiance NLU (rejet < 70%)
+10. ✅ **Propriété 10** : Conservation étapes (comptabilisation exacte)
 
 ## Prochaines Tâches 🚧
 
 ### Phase 5 : Gateway API (Tâches 11-13)
 
-#### Tâche 11 : API REST avec Ktor
-**À implémenter** :
-- Routes : `/interprete`, `/execute`, `/historique`, `/preferences`
-- Authentification JWT (HS256 MVP, RS256 production)
-- Rate limiting Redis (100 req/min utilisateur, 10 req/min interprétation)
-- Validation requêtes (Kotlin serialization)
-- Tests propriétés 5 (auth obligatoire) + 6 (rate limiting)
+#### Tâche 11 : API REST avec Ktor ✅ COMPLÉTÉ
+- ✅ Routes REST : `/interprete`, `/execute`, `/historique`, `/preferences`, `/health`
+- ✅ Authentification JWT (HS256 MVP, RS256 production)
+- ✅ Rate limiting sliding window (10-100 req/min)
+- ✅ Validation requêtes (Kotlin serialization)
+- ✅ Tests propriétés 5 (auth obligatoire) + 6 (rate limiting)
+- ✅ 150+ scénarios testés
 
 #### Tâche 12 : Routage intelligent
 - Sélection edge vs cloud selon confiance/contexte
@@ -116,12 +126,13 @@
 
 ## 📊 Statistiques
 
-- **Lignes de code** : ~6,400 (domaine + services + tests)
-- **Fichiers créés** : 31 (20 sources + 11 tests)
+- **Lignes de code** : ~7,900 (domaine + services + tests)
+- **Fichiers créés** : 37 (23 sources + 14 tests)
 - **Modules** : 3/3 (domaine, backend-services, infrastructure)
-- **Tests de propriété** : 400+ itérations
+- **Tests de propriété** : 550+ itérations
 - **Couverture propriétés** : 10/10 (100%)
-- **Tâches complétées** : 10/24 (42%)
+- **Tâches complétées** : 11/24 (46%)
+- **Routes API** : 6 (5 authentifiées + 1 publique)
 
 ## 🔐 Sécurité Implémentée
 
@@ -140,6 +151,12 @@
 - **Idempotence** : UUID v4 tokens, TTL 24h
 - **Retry** : Backoff exponentiel 1s/2s/4s
 - **Preuves** : SHA-256 pour MVP, RSA production
+
+### API Gateway
+- **JWT** : HMAC-SHA256 (MVP), RSA-SHA256 (production)
+- **Access token** : 1h expiration
+- **Refresh token** : 7 jours, one-time use
+- **Rate limiting** : Sliding window, 10-100 req/min par endpoint
 
 ## 🏗️ Architecture
 
@@ -174,8 +191,12 @@ backend/
 │   │   ├── CacheIdempotence      (Tâche 7)
 │   │   ├── JournalAudit          (Tâches 8, 10)
 │   │   └── SignateurCrypto       (Tâche 7)
-│   └── stockage/
-│       └── StoreMemoire          (Tâche 9) ⭐
+│   ├── stockage/
+│   │   └── StoreMemoire          (Tâche 9) ⭐
+│   └── gateway/                  (Tâche 11) ⭐ NOUVEAU
+│       ├── GatewayAPI            (Routes REST)
+│       ├── ServiceAuthentification (JWT)
+│       └── RateLimiter           (Quotas)
 │
 └── infrastructure/               # À venir (Phase 6)
     ├── postgres/
@@ -230,6 +251,28 @@ gradle wrapper --gradle-version 8.5
    - Production : Redis avec même interface
    - Raison : Simplicité MVP, migration transparente
 
+### Session 5 (Tâche 11)
+
+1. **HMAC-SHA256 vs RSA pour JWT**
+   - Choisi : HMAC-SHA256 pour MVP
+   - Production : RSA-SHA256
+   - Raison : HMAC plus simple (secret symétrique), RSA pour architecture distribuée
+
+2. **Sliding window vs Fixed window pour rate limiting**
+   - Choisi : Sliding window
+   - Rejeté : Fixed window (burst en début de fenêtre)
+   - Raison : Distribution uniforme, pas de burst
+
+3. **Blacklist tokens vs Stateless JWT**
+   - Choisi : Blacklist pour révocation
+   - Rejeté : Stateless pur (pas de révocation possible)
+   - Raison : Sécurité > performance, Redis rend blacklist rapide
+
+4. **Refresh token one-time vs réutilisable**
+   - Choisi : One-time (consommé après usage)
+   - Rejeté : Réutilisable
+   - Raison : Sécurité maximale, détecte vols de token
+
 ### Sessions précédentes
 
 5. **Pattern matching vs ML pour NLU**
@@ -272,6 +315,6 @@ gradle wrapper --gradle-version 8.5
 
 ---
 
-**Prêt pour Phase 5 : Gateway API** 🚀
+**Prêt pour Phase 5 suite : Routage + Monitoring** 🚀
 
-**Prochaine session** : Tâches 11-13 (REST, JWT, Rate Limiting)
+**Prochaine session** : Tâches 12-13 (Circuit breaker, métriques Prometheus, logs structurés)
