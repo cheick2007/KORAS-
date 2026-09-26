@@ -1,0 +1,372 @@
+openapi: 3.0.3
+info:
+  title: Koras Assistant Vocal API
+  description: API REST pour l'assistant vocal accessible multilingue
+  version: 1.0.0
+  contact:
+    name: Équipe Koras
+    email: contact@koras.com
+
+servers:
+  - url: http://localhost:8080
+    description: Développement local
+  - url: https://api.koras.com
+    description: Production
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    TokenPaire:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Token JWT d'accès (1h)
+        refreshToken:
+          type: string
+          description: Token de rafraîchissement (7 jours)
+        expiresIn:
+          type: integer
+          description: Durée de validité en secondes
+        tokenType:
+          type: string
+          enum: [Bearer]
+    
+    Intention:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [APPEL, SMS, EMAIL, ALARME, RAPPEL, CALENDRIER, NAVIGATION, RECHERCHE_WEB, RECHERCHE_CONTACT, METEO, ACTUALITES, LECTURE_TEXTE, OCR, PAIEMENT, MUSIQUE, PARAMETRES, AIDE, HISTORIQUE, ANNULATION, CONFIRMATION, REPETITION, PARTAGE]
+        entites:
+          type: object
+          additionalProperties: true
+        confiance:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        contexte:
+          type: object
+          additionalProperties: true
+    
+    ResultatInterpretation:
+      type: object
+      properties:
+        intention:
+          $ref: '#/components/schemas/Intention'
+        confiance:
+          type: number
+          format: float
+        langue:
+          type: string
+          enum: [FRANCAIS, ANGLAIS, ARABE, WOLOF, BAMBARA, SWAHILI, LINGALA, CREOLE_HAITIEN]
+        dureeMs:
+          type: integer
+        source:
+          type: string
+          enum: [EDGE, CLOUD]
+    
+    ResultatExecution:
+      type: object
+      properties:
+        planId:
+          type: string
+          format: uuid
+        statut:
+          type: string
+          enum: [SUCCES, ECHEC, ANNULE, ATTEND_CONFIRMATION]
+        resultats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultatEtape'
+        dureeMs:
+          type: integer
+    
+    ResultatEtape:
+      type: object
+      properties:
+        idExecution:
+          type: string
+          format: uuid
+        statut:
+          type: string
+          enum: [SUCCES, ECHEC, ANNULE]
+        resultat:
+          type: string
+        horodatage:
+          type: string
+          format: date-time
+        dureeMs:
+          type: integer
+    
+    EntreeAudit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        horodatage:
+          type: string
+          format: date-time
+        action:
+          type: string
+        resultat:
+          type: string
+          enum: [SUCCES, ECHEC, ANNULE]
+        dureeMs:
+          type: integer
+    
+    PreferencesUtilisateur:
+      type: object
+      properties:
+        vitesseParole:
+          type: number
+          format: float
+          minimum: 0.5
+          maximum: 2.0
+          default: 1.0
+        voix:
+          type: string
+        volumeParole:
+          type: integer
+          minimum: 0
+          maximum: 100
+          default: 80
+        vibrationActivee:
+          type: boolean
+          default: true
+        modeVerbeux:
+          type: boolean
+          default: false
+        periodeRetention:
+          type: string
+          enum: [SEPT_JOURS, TRENTE_JOURS, QUATRE_VINGT_DIX_JOURS, JAMAIS]
+          default: TRENTE_JOURS
+    
+    Erreur:
+      type: object
+      properties:
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Système]
+      responses:
+        '200':
+          description: Service opérationnel
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [UP, DOWN]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+  
+  /api/v1/auth/login:
+    post:
+      summary: Connexion utilisateur
+      tags: [Authentification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPaire'
+        '401':
+          description: Identifiants incorrects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+  
+  /api/v1/interprete:
+    post:
+      summary: Interprétation audio ou texte
+      tags: [NLU]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, contenu, langue]
+              properties:
+                type:
+                  type: string
+                  enum: [TEXTE, AUDIO]
+                contenu:
+                  type: string
+                  description: Texte ou données audio en Base64
+                langue:
+                  type: string
+                  enum: [FRANCAIS, ANGLAIS, ARABE, WOLOF, BAMBARA, SWAHILI, LINGALA, CREOLE_HAITIEN]
+      responses:
+        '200':
+          description: Interprétation réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultatInterpretation'
+        '400':
+          description: Confiance insuffisante
+        '401':
+          description: Non authentifié
+        '429':
+          description: Rate limit dépassé
+  
+  /api/v1/execute:
+    post:
+      summary: Exécution d'un plan d'actions
+      tags: [Exécution]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intention]
+              properties:
+                intention:
+                  $ref: '#/components/schemas/Intention'
+                tokenIdempotence:
+                  type: string
+                  format: uuid
+                  description: Token pour garantir l'idempotence
+      responses:
+        '200':
+          description: Exécution réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultatExecution'
+        '401':
+          description: Non authentifié
+        '429':
+          description: Rate limit dépassé
+  
+  /api/v1/historique:
+    get:
+      summary: Consultation du journal d'audit
+      tags: [Audit]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: dateDebut
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateFin
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limite
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Historique récupéré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entrees:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EntreeAudit'
+                  total:
+                    type: integer
+        '401':
+          description: Non authentifié
+  
+  /api/v1/preferences:
+    get:
+      summary: Récupération des préférences
+      tags: [Préférences]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Préférences récupérées
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferencesUtilisateur'
+        '401':
+          description: Non authentifié
+    
+    put:
+      summary: Mise à jour des préférences
+      tags: [Préférences]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferencesUtilisateur'
+      responses:
+        '200':
+          description: Préférences mises à jour
+        '401':
+          description: Non authentifié
+
+tags:
+  - name: Système
+    description: Endpoints système et monitoring
+  - name: Authentification
+    description: Gestion des tokens JWT
+  - name: NLU
+    description: Interprétation du langage naturel
+  - name: Exécution
+    description: Exécution des plans d'actions
+  - name: Audit
+    description: Journal d'audit et historique
+  - name: Préférences
+    description: Gestion des préférences utilisateur
