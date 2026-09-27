@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  koras-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: koras-api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - JWT_SECRET=dev-secret-change-in-production-256-bits-hmac-sha256-key
+    restart: unless-stopped

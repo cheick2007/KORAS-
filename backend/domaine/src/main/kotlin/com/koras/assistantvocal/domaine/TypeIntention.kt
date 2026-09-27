@@ -11,6 +11,7 @@ enum class TypeIntention {
     // Communication
     APPEL,
     SMS,
+    MESSAGE_WHATSAPP,
     EMAIL,
     
     // Calendrier et rappels
@@ -22,6 +23,7 @@ enum class TypeIntention {
     
     // Recherche et navigation
     RECHERCHE_WEB,
+    RECHERCHE_YOUTUBE,
     RECHERCHE_CONTACT,
     NAVIGATION_GPS,
     

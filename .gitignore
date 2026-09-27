@@ -1,28 +1,51 @@
-# IntelliJ IDEA
+# ==========================================
+# KORAS - Configuration Git Ignore Officielle
+# ==========================================
+
+# IDE & Editeurs
 .idea/
 *.iml
-out/
-gen/
+.vscode/
+*.sublime-project
+*.sublime-workspace
 
-# Gradle
+# Gradle & Builds
 .gradle/
 build/
+backend/build/
+backend/*/build/
 !gradle/wrapper/gradle-wrapper.jar
+!backend/gradle/wrapper/gradle-wrapper.jar
 
-# Flutter
+# Flutter & Mobile
 .dart_tool/
 .packages
 .pub-cache/
 .pub/
-/build/
-*.DS_Store
-.flutter-plugins
-.flutter-plugins-dependencies
+mobile_app/build/
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
+mobile_app/.dart_tool/
 
-# Node/React (just in case)
-node_modules/
-dist/
+# Fichiers internes, spécifications & documents temporaires
+.kiro/
+.kiro/**
+docs/
+*.tmp
+*.log
+*.bak
+*.swp
+*.sql
 
-# OS
+# Utilitaires de présentation & exécutables locaux
+cloudflared.exe
+backend/cloudflared.exe
+*.pptx
+~$*.pptx
+generate_deck.py
+
+# Fichiers Système
 .DS_Store
 Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini

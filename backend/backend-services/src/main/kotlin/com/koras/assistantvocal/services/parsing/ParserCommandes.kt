@@ -22,6 +22,11 @@ class ParserCommandes {
             Regex("sms à\\s+([^:]+)\\s*:?\\s*(.+)?", RegexOption.IGNORE_CASE),
             Regex("message à\\s+([^:]+)\\s*:?\\s*(.+)?", RegexOption.IGNORE_CASE)
         ),
+        TypeIntention.MESSAGE_WHATSAPP to listOf(
+            Regex("(?:envoie.*|écris.*)?whatsapp\\s+à\\s+(.+?)\\s+(?:disant|pour dire|que|:)\\s+(.+)", RegexOption.IGNORE_CASE),
+            Regex("(?:envoie.*|écris.*)?whatsapp\\s+à\\s+(\\S+)\\s+(.+)", RegexOption.IGNORE_CASE),
+            Regex("(?:envoie.*|écris.*)?whatsapp\\s+à\\s+(.+)", RegexOption.IGNORE_CASE)
+        ),
         TypeIntention.ALARME_CREATION to listOf(
             Regex("réveille-moi à\\s+(.+)", RegexOption.IGNORE_CASE),
             Regex("alarme à\\s+(.+)", RegexOption.IGNORE_CASE),
@@ -43,6 +48,13 @@ class ParserCommandes {
             Regex("direction\\s+(.+)", RegexOption.IGNORE_CASE),
             Regex("comment aller à\\s+(.+)", RegexOption.IGNORE_CASE),
             Regex("itinéraire vers\\s+(.+)", RegexOption.IGNORE_CASE)
+        ),
+        TypeIntention.RECHERCHE_YOUTUBE to listOf(
+            Regex("ouvre\\s*youtube\\s*et\\s*(?:recherche|cherche)\\s+(.+)", RegexOption.IGNORE_CASE),
+            Regex("(?:recherche|cherche)\\s+(.+?)\\s+sur\\s*youtube", RegexOption.IGNORE_CASE),
+            Regex("mets\\s+(.+?)\\s+sur\\s*youtube", RegexOption.IGNORE_CASE),
+            Regex("youtube\\s+(.+)", RegexOption.IGNORE_CASE),
+            Regex(".*youtube.*(?:recherche|cherche)\\s+(.+)", RegexOption.IGNORE_CASE)
         ),
         TypeIntention.RECHERCHE_WEB to listOf(
             Regex("recherche\\s+(.+)", RegexOption.IGNORE_CASE),
@@ -165,7 +177,7 @@ class ParserCommandes {
                 entites["contact"] = EntiteNLU.Contact(contact)
             }
             
-            TypeIntention.SMS -> {
+            TypeIntention.SMS, TypeIntention.MESSAGE_WHATSAPP -> {
                 val contact = match.groupValues.getOrNull(1)?.trim()
                     ?: throw ErreurParsing(0, "Destinataire manquant")
                 val message = match.groupValues.getOrNull(2)?.trim()
@@ -216,7 +228,7 @@ class ParserCommandes {
                 entites["destination"] = EntiteNLU.Lieu(destination)
             }
             
-            TypeIntention.RECHERCHE_WEB, TypeIntention.LECTURE_TEXTE -> {
+            TypeIntention.RECHERCHE_WEB, TypeIntention.LECTURE_TEXTE, TypeIntention.RECHERCHE_YOUTUBE -> {
                 val requete = match.groupValues.getOrNull(1)?.trim()
                     ?: throw ErreurParsing(0, "Requête manquante")
                 entites["requete"] = EntiteNLU.Texte(requete)
