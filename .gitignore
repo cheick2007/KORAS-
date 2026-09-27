@@ -1,0 +1,28 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+gen/
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+/build/
+*.DS_Store
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Node/React (just in case)
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
