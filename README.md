@@ -1,88 +1,88 @@
-# Koras - Assistant Vocal Accessible 🎙️🤖
+# Koras - Assistant Vocal Accessible
 
-Koras est un assistant vocal intelligent et entièrement accessible, pensé pour les personnes aveugles, malvoyantes, ou toute personne souhaitant interagir avec son téléphone de manière 100% vocale. 
+Koras est un assistant vocal intelligent et accessible, conu pour faciliter l'interaction avec le systme Android grce des commandes vocales. Il s'adresse notamment aux personnes souhaitant un usage main-libre ainsi qu'aux utilisateurs ayant des besoins spcifiques d'accessibilit.
 
-Il se distingue des autres assistants en étant conçu de A à Z avec un **Backend Kotlin/Java ultra-rapide** pour la compréhension du langage naturel (NLU) et une application **Flutter** agissant comme une interface flottante, fluide et parfaitement intégrée au système Android.
-
----
-
-## 🚀 Fonctionnalités Clés
-
-1. **Expérience "Bulle Flottante" (Style Siri)**
-   - Contrairement aux applications classiques qui prennent tout l'écran, Koras s'ouvre de façon **transparente** en superposition au-dessus de vos applications actuelles. 
-   - L'application peut être configurée comme **Assistant Numérique par défaut** sur Android. Un simple appui long sur le bouton Home ou un swipe depuis l'angle de votre écran fera surgir Koras de n'importe où !
-
-2. **Lancement d'Applications Intelligents**
-   - Dites simplement *"Ouvre WhatsApp"*, *"Lance YouTube"* ou *"Ouvre la calculatrice"*.
-   - Koras cherche intelligemment dans votre liste d'applications (grâce à `device_apps` et un système de secours robuste) pour ouvrir la bonne application sans délai.
-
-3. **Envoi de SMS en arrière-plan ("Fantôme")**
-   - Exemple : *"Envoie un message à Jean : j'arrive dans 5 minutes"*.
-   - Koras va chercher "Jean" dans vos contacts, écrire le message, et l'envoyer directement en arrière-plan sans même ouvrir votre application de messagerie.
-
-4. **Appels Téléphoniques Vocaux**
-   - Dites *"Appelle Maman"* et Koras lance directement l'appel via les Intents Android.
-
-5. **Moteur d'Intelligence Artificielle NLU Personnalisé**
-   - Le "cerveau" de Koras n'est pas un simple script. C'est un moteur NLU (Natural Language Understanding) écrit en Kotlin tournant sur un serveur.
-   - Il utilise un système de parsing par expressions régulières extrêmement performant qui extrait à la fois l'**Intention** (ex: `OUVERTURE_APP`) et les **Entités** (ex: `whatsapp`).
-   - Il supporte plus de 15 intentions (Alarme, Météo, Musique, Calendrier, SMS, Appels, etc.).
+Il s'appuie sur une architecture hybride : un backend performant en Kotlin/Java ddi la comprhension du langage naturel (NLU), et une application front-end dveloppe en Flutter agissant comme une interface systme fluide et intgre en surcouche du systme d'exploitation.
 
 ---
 
-## 🏗️ Architecture du Projet
+## Fonctionnalits Principales
 
-Le projet est divisé en deux grandes parties :
+1. **Exprience Utilisateur en Superposition**
+   - L'application ne ncessite pas l'ouverture d'une vue plein cran. Koras s'active et s'affiche en superposition transparente par-dessus les applications en cours d'excution.
+   - Il peut tre dfini comme Assistant Numrique par dfaut dans les paramtres d'Android. Une fois configur, un appui prolong sur le bouton d'accueil ou un geste depuis l'angle de l'cran invoque l'assistant.
+
+2. **Lancement Intelligent d'Applications**
+   - Rception de commandes telles que "Ouvre WhatsApp", "Lance YouTube" ou "Ouvre la calculatrice".
+   - Le systme effectue une recherche contextuelle dans le registre des applications installes (via `device_apps`) et exploite un algorithme de secours pour garantir une rponse rapide et prcise.
+
+3. **Envoi de SMS en Arrire-Plan**
+   - Exemple : "Envoie un message  Jean : j'arrive dans 5 minutes."
+   - Le systme rcupre les coordonnes du contact dans le rpertoire, rige le message et l'envoie en tche de fond sans ouvrir l'application de messagerie native.
+
+4. **Appels Tlphoniques Vocaux**
+   - Exemple : "Appelle Maman." Le systme dclenche directement l'appel tlphonique en exploitant les Intents Android.
+
+5. **Moteur d'Intelligence Artificielle NLU Personnalis**
+   - Le moteur NLU (Natural Language Understanding) est hberg sur le serveur Kotlin.
+   - Il intgre un systme de parsing complexe capable d'extraire la fois l'Intention de l'utilisateur (par exemple, `OUVERTURE_APP`) et les Entits associes (par exemple, `whatsapp`).
+   - Le moteur prend actuellement en charge plus de 15 intentions (Alarme, Mto, Musique, Calendrier, SMS, Appels, etc.).
+
+---
+
+## Architecture du Projet
+
+Le projet est dcoup en deux modules principaux :
 
 ### 1. Application Mobile (Flutter)
-- **Dossier :** `/mobile_app`
-- **Rôle :** Interface utilisateur (micro, synthèse vocale, UI flottante) et interactions avec le matériel du téléphone (lancement d'applications, accès aux contacts, SMS, appels).
-- **Technologies Clés :**
-  - `speech_to_text` : Pour écouter et transcrire la voix en direct.
-  - `flutter_tts` : Pour répondre vocalement avec une voix naturelle.
-  - `flutter_contacts` : Pour fouiller intelligemment dans votre répertoire.
-  - `device_apps` : Pour lancer d'autres applications.
-  - `telephony` : Pour l'envoi de SMS en tâche de fond.
+- **Rpertoire :** `/mobile_app`
+- **Rle :** Interface utilisateur (capture audio, synthse vocale, UI flottante) et couche d'interaction avec le matriel Android (accs aux contacts, gestion des tches d'arrire-plan, lancement d'applications).
+- **Technologies employes :**
+  - `speech_to_text` : Pour la transcription de la voix en texte en temps rel.
+  - `flutter_tts` : Pour la gnration de la rponse vocale (Text-To-Speech).
+  - `flutter_contacts` : Pour l'extraction et la recherche dans le rpertoire.
+  - `device_apps` : Pour le rfrencement et l'ouverture des autres applications.
+  - `telephony` : Pour la gestion et l'envoi de SMS en arrire-plan.
 
-### 2. Cerveau IA / Backend (Kotlin + Spring Boot)
-- **Dossier :** `/backend`
-- **Rôle :** Comprendre le sens des phrases envoyées par l'application mobile et générer un plan d'action structuré au format JSON.
-- **Technologies Clés :**
-  - Architecture Hexagonale (Domaine, Infrastructure, Services).
-  - Kotlin pur pour le traitement NLU (`ParserCommandes.kt`).
-  - L'application mobile lui envoie le texte (ex: "Ouvre TikTok"), et le backend répond avec un JSON indiquant exactement ce qu'il faut faire (Intention : `OUVERTURE_APP`, Nom de l'app : `TikTok`).
-
----
-
-## 🛠️ Comment l'installer et le tester ?
-
-### Étape 1 : Lancer le Backend (Le Cerveau)
-L'application mobile a besoin de communiquer avec le backend local (sur le même réseau Wi-Fi).
-1. Ouvrez le dossier `/backend` avec IntelliJ IDEA.
-2. Lancez l'application Kotlin/Spring Boot (ou via terminal : `./gradlew run`).
-3. Notez l'adresse IP de votre ordinateur (ex: `192.168.1.5`).
-
-### Étape 2 : Configurer et Lancer l'Application Mobile
-1. Ouvrez le dossier `/mobile_app` avec VS Code ou Android Studio.
-2. Assurez-vous que l'adresse IP dans `lib/main.dart` et `lib/screens/home_page.dart` correspond bien à l'adresse IP de votre ordinateur.
-3. Connectez votre téléphone Android via câble USB ou Wi-Fi Debugging.
-4. Lancez la compilation : `flutter run` ou `flutter build apk`.
-
-### Étape 3 : Configurer Koras comme Assistant Principal
-Pour profiter de l'expérience "Siri", Koras doit être l'assistant principal du téléphone.
-- Ouvrez Koras, une bannière s'affichera en haut : **"Définissez Koras comme assistant principal..."**.
-- Cliquez sur **"Configurer"**.
-- Vous serez redirigé vers les paramètres cachés d'Android. Choisissez **Koras** comme "Application d'assistance numérique".
-- Désormais, restez appuyé sur le bouton Home de votre Android, Koras s'ouvrira en superposition n'importe où !
+### 2. Backend / Moteur NLU (Kotlin + Spring Boot)
+- **Rpertoire :** `/backend`
+- **Rle :** Analyse et comprhension des phrases transmises par le client mobile, puis gnration d'un plan d'action dtaill sous format JSON.
+- **Technologies employes :**
+  - Architecture Hexagonale s'appuyant sur les principes du Domain-Driven Design (Domaine, Infrastructure, Services).
+  - Implmentation du traitement NLU en Kotlin pur (`ParserCommandes.kt`).
+  - Flux de donnes : le client envoie une requte textuelle (ex: "Ouvre TikTok"), et le backend rpond avec un objet JSON dcrivant l'action effectuer (Intention : `OUVERTURE_APP`, Entit : `TikTok`).
 
 ---
 
-## 🧠 Comment ça marche sous le capot ? (Exemple de flux)
+## Guide d'Installation et de Dploiement
 
-1. **L'utilisateur** reste appuyé sur le bouton Home et dit : *"Ouvre WhatsApp"*.
-2. **Flutter (`home_page.dart`)** enregistre la voix et la convertit en texte via `speech_to_text`.
-3. **Flutter** envoie le texte "Ouvre WhatsApp" au **Backend Kotlin** via HTTP (`/api/v1/interprete`).
-4. **Le Backend (`ParserCommandes.kt`)** lit la phrase, la fait passer dans ses Regex, et comprend que l'utilisateur veut faire une `OUVERTURE_APP` et extrait l'entité texte contenant "WhatsApp".
-5. **Le Backend** renvoie un JSON clair au téléphone.
-6. **Flutter (`home_page.dart`)** reçoit le JSON, déclenche la fonction locale `_launchApp("WhatsApp")`.
-7. **Koras** annonce *"Ouverture de WhatsApp"* via synthèse vocale (`flutter_tts`) et Android ouvre l'application WhatsApp. 🚀
+### tape 1 : Dmarrage du Serveur Backend
+L'application mobile requiert une connexion avec le backend local pour traiter les requtes (connexion sur le mme rseau Wi-Fi).
+1. Ouvrez le dossier `/backend` avec IntelliJ IDEA ou l'diteur de votre choix.
+2. Lancez le service Kotlin/Spring Boot (en ligne de commande : `./gradlew run`).
+3. Rcuprez et notez l'adresse IP locale de votre machine (ex: `192.168.1.5`).
+
+### tape 2 : Configuration et Dmarrage de l'Application Mobile
+1. Ouvrez le dossier `/mobile_app` dans votre environnement de dveloppement (VS Code, Android Studio).
+2. Modifiez la configuration rseau dans les fichiers `lib/main.dart` et `lib/screens/home_page.dart` afin que l'URL de l'API corresponde  l'adresse IP du serveur note l'tape prcdente.
+3. Connectez un priphrique Android via USB ou Wi-Fi Debugging.
+4. Lancez la compilation via la commande : `flutter run` ou gnrez l'APK avec `flutter build apk`.
+
+### tape 3 : Configuration de l'Assistant par dfaut
+Afin de bnficier de l'exprience utilisateur complte, l'application doit tre dfinie comme assistant par dfaut du systme.
+- Lors du lancement de l'application, un bandeau de configuration s'affichera.
+- Cliquez sur l'option de configuration.
+- Dans les paramtres systme d'Android, slectionnez **Koras** comme "Application d'assistance numrique".
+- L'assistant peut dsormais tre dclench depuis n'importe quel cran via une pression prolonge sur le bouton d'accueil.
+
+---
+
+## Dtail du Flux d'Excussion Technique
+
+1. **Dclenchement** : L'utilisateur effectue une pression prolonge sur le bouton d'accueil et nonce sa requte : "Ouvre WhatsApp".
+2. **Transcription** : Le module Flutter (`home_page.dart`) capture le flux audio et le convertit en texte.
+3. **Transmission** : Le texte est envoy au serveur Backend via une requte HTTP POST (`/api/v1/interprete`).
+4. **Analyse (NLU)** : Le Backend utilise les modles de parsing rguliers dfinis dans `ParserCommandes.kt` pour dterminer l'intention (`OUVERTURE_APP`) et extraire l'entit ("WhatsApp").
+5. **Rponse** : Le serveur gnre un plan d'action JSON et le renvoie au client.
+6. **Rception** : Flutter intercepte la rponse et dclenche la mthode native ddie `_launchApp("WhatsApp")`.
+7. **Excussion** : L'interface signale la validation via le synthtiseur vocal et le systme Android lance l'application cible.
