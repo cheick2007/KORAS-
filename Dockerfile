@@ -11,7 +11,7 @@ WORKDIR /home/gradle/project
 COPY backend/ .
 
 # Compilation et création de la distribution autonome
-RUN chmod +x ./gradlew && ./gradlew :backend-services:installDist --no-daemon
+RUN gradle :backend-services:installDist --no-daemon
 
 # Étape 2 : Image d'exécution minimale et sécurisée
 FROM eclipse-temurin:17-jre-alpine
