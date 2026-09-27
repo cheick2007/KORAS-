@@ -287,7 +287,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _isListening = false;
     });
     _saveMessages();
-    _processWithBackend(text);
+    // Toujours commencer par le moteur local ultra-rapide pour les commandes device
+    _smartProcess(text);
+  }
+
+  // Routeur intelligent : local pour commandes simples, serveur pour requêtes complexes
+  Future<void> _smartProcess(String text) async {
+    final lower = text.toLowerCase().trim();
+
+    // Commandes purement locales (Zéro latence serveur)
+    final bool isLocalCommand =
+        lower.contains('whatsapp') ||
+        lower.contains('youtube') ||
+        RegExp(r'\b(appelle|appeler|appel|téléphone|telephone|contacte)\b').hasMatch(lower) ||
+        RegExp(r'\b(sms|texto|message)\b').hasMatch(lower) ||
+        RegExp(r'\b(ouvre|ouvrir|ouvres|ouvrez|lance|lancer|démarre|demarrer|affiche|montre|démarre|start|ouvre-moi|mets|mettre)\b').hasMatch(lower) ||
+        RegExp(r'\b(heure|quelle heure|il est quelle)\b').hasMatch(lower) ||
+        RegExp(r'\b(qui es-tu|tu es qui|ton nom|qui t.a créé|bonjour|salut)\b').hasMatch(lower);
+
+    if (isLocalCommand || widget.token == 'demo_autonomous_token') {
+      // Exécution instantanée sans passer par le réseau
+      await _processOfflineAutonomous(text);
+      return;
+    }
+
+    // Pour les requêtes complexes (météo, calculs, etc.) → serveur
+    await _processWithBackend(text);
   }
 
   Future<String?> _findPhoneNumber(String contactName) async {
@@ -339,15 +364,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Future<void> _processWithBackend(String text) async {
     try {
-      // Si en mode démo autonome direct, on exécute en local immédiatement
-      if (widget.token == 'demo_autonomous_token') {
-        await _processOfflineAutonomous(text);
-        return;
-      }
-
       final baseUrl = await ApiConfig.getBaseUrl();
       
-      // 1. Appel du NLU pour interpréter la commande
+      // Appel NLU avec timeout généreux pour requêtes complexes
       final interpretRes = await http.post(
         Uri.parse('$baseUrl/interprete'),
         headers: {
@@ -359,131 +378,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           'contenu': text,
           'langue': 'FRANCAIS'
         }),
-      ).timeout(const Duration(seconds: 4));
+      ).timeout(const Duration(seconds: 8));
       
       if (interpretRes.statusCode != 200) {
-        if (interpretRes.statusCode == 500 || interpretRes.statusCode == 400) {
-          if (mounted) {
-            setState(() {
-              _messages.add({"sender": "assistant", "text": "Désolé, je n'ai pas compris votre demande. Pourriez-vous répéter ?"});
-            });
-            await _flutterTts.speak("Désolé, je n'ai pas compris votre demande.");
-          }
-          return;
-        }
         throw Exception("Erreur NLU: Code ${interpretRes.statusCode}");
       }
       
       final interpretData = jsonDecode(interpretRes.body);
       final intention = interpretData['intention'];
-      
-      // 2. Exécution du plan avec l'intention reçue
-      final executeRes = await http.post(
-        Uri.parse('$baseUrl/execute'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${widget.token}'
-        },
-        body: jsonEncode({
-          'intention': intention,
-          'langue': 'FRANCAIS'
-        }),
-      ).timeout(const Duration(seconds: 4));
-      
-      if (executeRes.statusCode != 200) {
-        throw Exception("Erreur Execution: Code ${executeRes.statusCode}");
-      }
-      
-      // 3. Déterminer la réponse à vocaliser
-      String responseText = "Action exécutée avec succès.";
       final typeIntention = intention['type'];
-      
-      // Exécution de l'action réelle sur le téléphone
+      String responseText = "Action exécutée avec succès.";
+
       switch(typeIntention) {
         case 'METEO':
           responseText = "D'après mes informations, le temps est dégagé avec une température agréable.";
           _launchIntentUrl('https://weather.com/fr-FR/temps/aujour/l/FRXX0076');
           break;
-        case 'APPEL':
-          final contactName = intention['entites']?['contact']?['nom'] ?? 'ce contact';
-          String? numberToCall = await _findPhoneNumber(contactName);
-          
-          if (numberToCall != null) {
-            var phoneStatus = await Permission.phone.status;
-            if (!phoneStatus.isGranted) {
-              phoneStatus = await Permission.phone.request();
-            }
-            
-            if (phoneStatus.isGranted) {
-              responseText = "Appel en cours vers $contactName.";
-              final intent = AndroidIntent(
-                action: 'android.intent.action.CALL',
-                data: 'tel:$numberToCall',
-              );
-              await intent.launch();
-            } else {
-              responseText = "Je n'ai pas l'autorisation de passer des appels.";
-            }
-          } else {
-            responseText = "Je n'ai pas trouvé le numéro de $contactName dans vos contacts.";
-          }
-          break;
-        case 'SMS':
-          final contactName = intention['entites']?['contact']?['nom'] ?? 'ce contact';
-          final messageContent = intention['entites']?['message']?['contenu'] ?? '';
-          String? numberToSend = await _findPhoneNumber(contactName);
-          
-          if (numberToSend != null) {
-            responseText = "Préparation du SMS pour $contactName.";
-            final intent = AndroidIntent(
-              action: 'android.intent.action.SENDTO',
-              data: 'smsto:$numberToSend',
-              arguments: {
-                'sms_body': messageContent,
-              },
-            );
-            await intent.launch();
-          } else {
-            responseText = "Je n'ai pas trouvé le contact $contactName pour envoyer le SMS.";
-          }
-          break;
-        case 'MESSAGE_WHATSAPP':
-          final contactName = intention['entites']?['destinataire']?['valeur'] ?? '';
-          final messageContent = intention['entites']?['message']?['contenu'] ?? '';
-          
-          if (contactName.isNotEmpty) {
-            String? phoneNumber = await _findPhoneNumber(contactName);
-            if (phoneNumber != null) {
-              final cleanPhone = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
-              final encodedMsg = Uri.encodeComponent(messageContent);
-              responseText = "Ouverture de la discussion WhatsApp avec $contactName.";
-              await _launchIntentUrl('https://wa.me/$cleanPhone?text=$encodedMsg');
-            } else {
-              final encodedMsg = Uri.encodeComponent(messageContent);
-              responseText = "Je n'ai pas trouvé le numéro de $contactName. Ouverture de WhatsApp.";
-              await _launchIntentUrl('https://wa.me/?text=$encodedMsg');
-            }
-          } else {
-            responseText = "Ouverture de WhatsApp.";
-            await _launchIntentUrl('whatsapp://');
-          }
-          break;
-        case 'OUVERTURE_APP':
-          final appName = intention['entites']?['application']?['nom'] ?? '';
-          responseText = await _openInstalledApp(appName);
-          break;
-        case 'RECHERCHE_WEB':
-          final query = intention['entites']?['requete']?['contenu'] ?? text;
-          responseText = "Voici ce que j'ai trouvé sur le web concernant votre recherche.";
-          _launchIntentUrl('https://www.google.com/search?q=${Uri.encodeComponent(query)}');
-          break;
-        case 'RECHERCHE_YOUTUBE':
-          final query = intention['entites']?['requete']?['contenu'] ?? text;
-          responseText = "Voici les résultats sur YouTube.";
-          _launchIntentUrl('https://www.youtube.com/results?search_query=${Uri.encodeComponent(query)}');
-          break;
         default:
-          responseText = "J'ai bien compris votre demande concernant : $typeIntention.";
+          responseText = "J'ai bien compris votre demande. Traitement en cours.";
       }
       
       if (mounted) {
@@ -492,70 +404,120 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         _saveMessages();
       }
-      
       await _flutterTts.speak(responseText);
       
     } catch (e) {
-      // Fallback local automatique : l'application reste 100% fonctionnelle même sans serveur
+      // Serveur inaccessible → moteur local
       await _processOfflineAutonomous(text);
     }
   }
 
-  // Moteur d'exécution autonome sur smartphone (Zéro dépendance serveur)
+  // Moteur NLU local ultra-rapide (0ms latence, 100% hors-ligne)
   Future<void> _processOfflineAutonomous(String text) async {
     final lower = text.toLowerCase().trim();
     String responseText = "J'ai bien compris votre demande.";
 
-    // 1. YouTube (Ouvrir ou Rechercher)
+    // Noms d'applications courants → package Android exact
+    final Map<String, String> appPackages = {
+      'whatsapp': 'com.whatsapp',
+      'instagram': 'com.instagram.android',
+      'facebook': 'com.facebook.katana',
+      'twitter': 'com.twitter.android',
+      'x': 'com.twitter.android',
+      'tiktok': 'com.zhiliaoapp.musically',
+      'snapchat': 'com.snapchat.android',
+      'telegram': 'org.telegram.messenger',
+      'youtube': 'com.google.android.youtube',
+      'gmail': 'com.google.android.gm',
+      'maps': 'com.google.android.apps.maps',
+      'google maps': 'com.google.android.apps.maps',
+      'spotify': 'com.spotify.music',
+      'netflix': 'com.netflix.mediaclient',
+      'chrome': 'com.android.chrome',
+      'appareil photo': 'com.android.camera2',
+      'camera': 'com.android.camera2',
+      'galerie': 'com.google.android.apps.photos',
+      'photos': 'com.google.android.apps.photos',
+      'paramètres': 'com.android.settings',
+      'settings': 'com.android.settings',
+      'calculatrice': 'com.google.android.calculator',
+      'calendrier': 'com.google.android.calendar',
+    };
+
+    // ── 1. YOUTUBE ─────────────────────────────────────────────────────────────
     if (lower.contains('youtube')) {
-      final reg1 = RegExp(r'(?:cherche|recherche|trouve|joue|mets|lance|regarde)\s+(.+?)(?:\s+sur\s+youtube|$)', caseSensitive: false);
-      final reg2 = RegExp(r'youtube\s+(?:et\s+)?(?:cherche|recherche)\s+(.+)', caseSensitive: false);
+      final queryReg = RegExp(
+        r'(?:cherche|recherche|trouve|joue|mets|lance|regarde|montre)\s+(.+?)(?:\s+sur\s+youtube|$)',
+        caseSensitive: false,
+      );
+      final queryReg2 = RegExp(
+        r'youtube\s+(?:et\s+)?(?:cherche|recherche|pour)\s+(.+)',
+        caseSensitive: false,
+      );
       String query = '';
-      if (reg1.hasMatch(lower)) {
-        query = reg1.firstMatch(lower)!.group(1) ?? '';
-      } else if (reg2.hasMatch(lower)) {
-        query = reg2.firstMatch(lower)!.group(1) ?? '';
+      if (queryReg.hasMatch(lower)) {
+        query = (queryReg.firstMatch(lower)!.group(1) ?? '').replaceAll(RegExp(r'\bsur\s+youtube\b', caseSensitive: false), '').trim();
+      } else if (queryReg2.hasMatch(lower)) {
+        query = (queryReg2.firstMatch(lower)!.group(1) ?? '').trim();
       }
-      query = query.replaceAll(RegExp(r'\bsur\s+youtube\b', caseSensitive: false), '').trim();
-      
+
       if (query.isNotEmpty) {
         responseText = "Recherche de $query sur YouTube.";
         await _launchIntentUrl('https://www.youtube.com/results?search_query=${Uri.encodeComponent(query)}');
       } else {
         responseText = "Ouverture de YouTube.";
-        await _launchIntentUrl('https://www.youtube.com');
+        final launched = await DeviceApps.openApp('com.google.android.youtube');
+        if (!launched) await _launchIntentUrl('https://www.youtube.com');
       }
     }
-    // 2. WhatsApp (Envoi direct avec destinataire et message)
+
+    // ── 2. WHATSAPP ────────────────────────────────────────────────────────────
     else if (lower.contains('whatsapp')) {
-      final reg = RegExp(r'(?:envoie|envoyer|ecris|écris|message|dis)\s+(?:un\s+message\s+)?(?:à|a)\s+(.+?)(?:\s+(?:que|pour\s+dire\s+que|sur\s+whatsapp\s+que|:)\s+(.+)|$)', caseSensitive: false);
+      final msgReg = RegExp(
+        r'(?:envoie|envoyer|écris|ecris|dis|envoie-lui|envoie lui)\s+(?:un\s+)?(?:message\s+)?(?:à|a|pour)\s+(.+?)(?:\s+(?:que|pour\s+dire|:\s*|sur\s+whatsapp\s*:?\s*)\s*(.+)|$)',
+        caseSensitive: false,
+      );
+      final contactReg = RegExp(
+        r'(?:ouvre|ouvrir|lance|appelle|contacte|message)\s+(?:\w+\s+)?(?:à|a)?\s*(.+?)\s+(?:sur|via)\s+whatsapp',
+        caseSensitive: false,
+      );
       String contact = '';
       String msg = '';
-      if (reg.hasMatch(lower)) {
-        final match = reg.firstMatch(lower)!;
-        contact = (match.group(1) ?? '').trim().replaceAll(RegExp(r'\bsur\s+whatsapp\b', caseSensitive: false), '').trim();
-        msg = (match.group(2) ?? '').trim();
+
+      if (msgReg.hasMatch(lower)) {
+        final m = msgReg.firstMatch(lower)!;
+        contact = (m.group(1) ?? '').replaceAll(RegExp(r'\bsur\s+whatsapp\b', caseSensitive: false), '').trim();
+        msg = (m.group(2) ?? '').trim();
+      } else if (contactReg.hasMatch(lower)) {
+        contact = (contactReg.firstMatch(lower)!.group(1) ?? '').trim();
       }
-      
+
       if (contact.isNotEmpty) {
         String? phone = await _findPhoneNumber(contact);
         if (phone != null) {
           final cleanPhone = phone.replaceAll(RegExp(r'[^0-9+]'), '');
-          responseText = "Ouverture de WhatsApp pour envoyer votre message à $contact.";
-          await _launchIntentUrl('https://wa.me/$cleanPhone?text=${Uri.encodeComponent(msg)}');
+          responseText = msg.isNotEmpty
+            ? "Envoi du message WhatsApp à $contact."
+            : "Ouverture de WhatsApp avec $contact.";
+          await _launchIntentUrl('https://wa.me/$cleanPhone${msg.isNotEmpty ? '?text=${Uri.encodeComponent(msg)}' : ''}');
         } else {
-          responseText = "Ouverture de WhatsApp avec votre message.";
-          await _launchIntentUrl('https://wa.me/?text=${Uri.encodeComponent(msg)}');
+          responseText = "Contact introuvable. Ouverture de WhatsApp.";
+          await DeviceApps.openApp('com.whatsapp');
         }
       } else {
         responseText = "Ouverture de WhatsApp.";
-        await _launchIntentUrl('whatsapp://');
+        final launched = await DeviceApps.openApp('com.whatsapp');
+        if (!launched) await _launchIntentUrl('whatsapp://');
       }
     }
-    // 3. Appels téléphoniques
-    else if (lower.startsWith('appelle') || lower.startsWith('appeler') || lower.startsWith('téléphone')) {
-      final reg = RegExp(r'(?:appelle|appeler|téléphone\s+à|telephone\s+a)\s+(.+)', caseSensitive: false);
-      String contact = reg.firstMatch(lower)?.group(1)?.trim() ?? '';
+
+    // ── 3. APPELS TÉLÉPHONIQUES ────────────────────────────────────────────────
+    else if (RegExp(r'\b(appelle|appeler|appels|téléphone|telephone|contacte|appel)\b').hasMatch(lower)) {
+      final reg = RegExp(
+        r'(?:appelle|appeler|téléphone\s+à|telephone\s+a|contacte|appel\s+de)\s+(.+)',
+        caseSensitive: false,
+      );
+      final contact = reg.firstMatch(lower)?.group(1)?.trim() ?? '';
       if (contact.isNotEmpty) {
         String? number = await _findPhoneNumber(contact);
         if (number != null) {
@@ -563,56 +525,118 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           if (!phoneStatus.isGranted) phoneStatus = await Permission.phone.request();
           if (phoneStatus.isGranted) {
             responseText = "Appel en cours vers $contact.";
-            final intent = AndroidIntent(action: 'android.intent.action.CALL', data: 'tel:$number');
-            await intent.launch();
+            await AndroidIntent(action: 'android.intent.action.CALL', data: 'tel:$number').launch();
           } else {
-            responseText = "Autorisation d'appel manquante.";
+            responseText = "Autorisation d'appel refusée. Ouverture du composeur.";
+            await _launchIntentUrl('tel:$number');
           }
         } else {
           responseText = "Je n'ai pas trouvé le numéro de $contact dans vos contacts.";
         }
+      } else {
+        responseText = "Dites-moi qui vous souhaitez appeler.";
       }
     }
-    // 4. SMS
-    else if (lower.startsWith('sms') || lower.contains('par sms')) {
-      final reg = RegExp(r'(?:envoie|envoyer)\s+(?:un\s+)?sms\s+(?:à|a)\s+(.+?)(?:\s+(?:que|:)\s+(.+)|$)', caseSensitive: false);
+
+    // ── 4. SMS ─────────────────────────────────────────────────────────────────
+    else if (RegExp(r'\b(sms|texto|envoie un message|par sms)\b').hasMatch(lower)) {
+      final reg = RegExp(
+        r'(?:envoie|envoyer|envoie un message)\s+(?:un\s+)?(?:sms|texto|message)\s+(?:à|a|pour)\s+(.+?)(?:\s+(?:que|:)\s+(.+)|$)',
+        caseSensitive: false,
+      );
       if (reg.hasMatch(lower)) {
         final contact = reg.firstMatch(lower)!.group(1)?.trim() ?? '';
         final msg = reg.firstMatch(lower)!.group(2)?.trim() ?? '';
         String? phone = await _findPhoneNumber(contact);
         if (phone != null) {
           responseText = "Préparation du SMS pour $contact.";
-          final intent = AndroidIntent(action: 'android.intent.action.SENDTO', data: 'smsto:$phone', arguments: {'sms_body': msg});
-          await intent.launch();
-        }
-      }
-    }
-    // 5. Ouverture d'Application
-    else if (lower.startsWith('ouvre') || lower.startsWith('ouvrir') || lower.startsWith('lance')) {
-      final reg = RegExp(r'(?:ouvre|ouvrir|lance|lancer)\s+(?:l\s*application\s+|l\s*appli\s+)?(.+)', caseSensitive: false);
-      final appName = reg.firstMatch(lower)?.group(1)?.trim() ?? '';
-      if (appName.isNotEmpty) {
-        final res = await _openInstalledApp(appName);
-        if (res == "SUCCESS") {
-          responseText = "Ouverture de $appName.";
+          await AndroidIntent(
+            action: 'android.intent.action.SENDTO',
+            data: 'smsto:$phone',
+            arguments: {'sms_body': msg},
+          ).launch();
         } else {
-          responseText = "Je n'ai pas trouvé l'application $appName.";
+          responseText = "Je n'ai pas trouvé le contact $contact.";
         }
+      } else {
+        responseText = "Ouverture de l'application SMS.";
+        await _launchIntentUrl('sms:');
       }
     }
-    // 6. Heure courante
-    else if (lower.contains('heure')) {
+
+    // ── 5. OUVERTURE D'APPLICATION ────────────────────────────────────────────
+    else if (RegExp(r'\b(ouvre|ouvrir|ouvres|ouvrez|lance|lancer|démarre|demarrer|affiche|montre|démarre|start|mets|mettre|ouvre-moi)\b').hasMatch(lower)) {
+      final reg = RegExp(
+        r'(?:ouvre|ouvrir|ouvres|ouvrez|lance|lancer|démarre|demarrer|affiche|montre|start|mets|mettre|ouvre-moi)\s+(?:l[ae]?\s+)?(?:application\s+|appli(?:cation)?\s+|app\s+)?(.+)',
+        caseSensitive: false,
+      );
+      String appName = reg.firstMatch(lower)?.group(1)?.trim() ?? '';
+      // Nettoyer les mots parasites
+      appName = appName
+          .replaceAll(RegExp(r'\bsur\s+mon\s+téléphone\b', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\bpour\s+moi\b', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\bmaintenant\b', caseSensitive: false), '')
+          .trim();
+
+      if (appName.isNotEmpty) {
+        // Essai 1 : package connu directement
+        bool launched = false;
+        for (final entry in appPackages.entries) {
+          if (appName.contains(entry.key) || entry.key.contains(appName)) {
+            launched = await DeviceApps.openApp(entry.value);
+            if (launched) {
+              responseText = "Ouverture de ${appName[0].toUpperCase()}${appName.substring(1)}.";
+              break;
+            }
+          }
+        }
+        // Essai 2 : scan des apps installées
+        if (!launched) {
+          final res = await _openInstalledApp(appName);
+          if (res == "SUCCESS") {
+            responseText = "Ouverture de ${appName[0].toUpperCase()}${appName.substring(1)}.";
+          } else {
+            responseText = "Je n'ai pas trouvé l'application \"$appName\" sur votre téléphone.";
+          }
+        }
+      } else {
+        responseText = "Dites-moi quelle application vous souhaitez ouvrir.";
+      }
+    }
+
+    // ── 6. HEURE ──────────────────────────────────────────────────────────────
+    else if (RegExp(r'\b(heure|quelle heure|il est quelle|combien d.heure)\b').hasMatch(lower)) {
       final now = DateTime.now();
-      responseText = "Il est actuellement ${now.hour} heure${now.hour > 1 ? 's' : ''} et ${now.minute.toString().padLeft(2, '0')}.";
+      responseText = "Il est ${now.hour}h${now.minute.toString().padLeft(2, '0')}.";
     }
-    // 7. Identité / Présentation
-    else if (lower.contains('qui es-tu') || lower.contains('ton nom') || lower.contains('qui t\'a créé') || lower.contains('bonjour')) {
-      responseText = "Bonjour ! Je suis Koras, votre assistant vocal accessible et intelligent de nouvelle génération.";
+
+    // ── 7. DATE ───────────────────────────────────────────────────────────────
+    else if (RegExp(r'\b(date|quel jour|on est quel|aujourd.hui)\b').hasMatch(lower)) {
+      final now = DateTime.now();
+      final jours = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
+      final mois = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+      responseText = "Nous sommes ${jours[now.weekday - 1]} ${now.day} ${mois[now.month - 1]} ${now.year}.";
     }
-    // 8. Recherche Web par défaut
+
+    // ── 8. MÉTÉO (locale simple) ───────────────────────────────────────────────
+    else if (RegExp(r'\b(météo|meteo|temps qu.il fait|quel temps|température)\b').hasMatch(lower)) {
+      responseText = "Ouverture de la météo pour votre localisation.";
+      await _launchIntentUrl('https://weather.com/fr-FR/temps/aujour/');
+    }
+
+    // ── 9. IDENTITÉ ───────────────────────────────────────────────────────────
+    else if (RegExp(r'\b(qui es.tu|tu es qui|ton nom|qui t.a créé|bonjour|salut|comment tu t.appelles)\b').hasMatch(lower)) {
+      responseText = "Bonjour ! Je suis Koras, votre assistant vocal accessible et intelligent, conçu pour simplifier votre quotidien numérique.";
+    }
+
+    // ── 10. RECHERCHE WEB (par défaut — jamais Google si commande reconnue) ────
     else {
-      responseText = "Recherche sur le web concernant : $text";
-      await _launchIntentUrl('https://www.google.com/search?q=${Uri.encodeComponent(text)}');
+      final searchQuery = lower
+          .replaceAll(RegExp(r'^(?:cherche|recherche|trouve|google)\s+', caseSensitive: false), '')
+          .replaceAll(RegExp(r'\bsur\s+(?:google|le\s+web|internet)\b', caseSensitive: false), '')
+          .trim();
+      responseText = "Recherche en cours pour : $searchQuery.";
+      await _launchIntentUrl('https://www.google.com/search?q=${Uri.encodeComponent(searchQuery)}');
     }
 
     if (mounted) {
