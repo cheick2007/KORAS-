@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:device_apps/device_apps.dart';
 import 'package:telephony/telephony.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import '../main.dart';
 
 class HomePage extends StatefulWidget {
@@ -367,175 +368,145 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.6), // Fond semi-transparent pour l'effet bulle
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Assistant Koras',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white70),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Paramètres bientôt disponibles !')),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white70),
-            onPressed: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-              );
-            },
-          )
-        ],
-      ),
+      backgroundColor: Colors.transparent, // Complètement transparent pour voir les autres apps
       body: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Bannière pour définir l'assistant par défaut
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1e293b).withOpacity(0.8),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF3b82f6).withOpacity(0.5)),
+          // Espace vide cliquable pour fermer l'assistant
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                // Fermer l'assistant en douceur et quitter l'app
+                SystemNavigator.pop();
+              },
+              behavior: HitTestBehavior.opaque,
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.assistant, color: Color(0xFF3b82f6), size: 32),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    "Définissez Koras comme assistant principal pour l'utiliser avec le bouton d'accueil.",
-                    style: TextStyle(color: Colors.white, fontSize: 13),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    const intent = AndroidIntent(
-                      action: 'android.settings.VOICE_INPUT_SETTINGS',
-                    );
-                    intent.launch();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3b82f6),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  child: const Text("Configurer", style: TextStyle(color: Colors.white)),
-                ),
+          ),
+          
+          // La Bulle type "Gemini"
+          Container(
+            padding: const EdgeInsets.only(top: 16, left: 24, right: 24, bottom: 32),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0f172a),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(32),
+                topRight: Radius.circular(32),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 30,
+                  offset: const Offset(0, -5),
+                )
               ],
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                final isUser = msg["sender"] == "user";
-                return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.75,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: isUser ? const Color(0xFF3b82f6) : const Color(0xFF1e293b),
-                      borderRadius: BorderRadius.circular(24).copyWith(
-                        bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(24),
-                        bottomLeft: !isUser ? const Radius.circular(4) : const Radius.circular(24),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        )
-                      ]
-                    ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                
+                // Texte de réponse (le dernier message)
+                Text(
+                  _messages.last["text"] ?? "Je suis à votre écoute...",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Affichage en temps réel de ce qui est entendu
+                if (_currentWords.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24.0),
                     child: Text(
-                      msg["text"]!,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+                      '"$_currentWords..."',
+                      style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic, fontSize: 16),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          
-          // Affichage en temps réel de ce qui est entendu
-          if (_currentWords.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-              child: Text(
-                '"$_currentWords..."',
-                style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          
-          // Zone du microphone animée
-          Container(
-            padding: const EdgeInsets.only(top: 20, bottom: 40),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF0f172a).withOpacity(0.0),
-                  const Color(0xFF0f172a),
-                ],
-              ),
-            ),
-            child: Center(
-              child: GestureDetector(
-                onTap: _toggleListening,
-                child: AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    return Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _isListening 
-                            ? const Color(0xFF3b82f6).withOpacity(0.3 + (_pulseController.value * 0.2))
-                            : const Color(0xFF1e293b),
-                        boxShadow: _isListening ? [
-                          BoxShadow(
-                            color: const Color(0xFF3b82f6).withOpacity(0.5),
-                            blurRadius: 20 * _pulseController.value,
-                            spreadRadius: 10 * _pulseController.value,
-                          )
-                        ] : [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
-                        border: Border.all(
-                          color: _isListening ? const Color(0xFF3b82f6) : Colors.white12,
-                          width: 2,
+                
+                // Bouton Microphone
+                GestureDetector(
+                  onTap: _toggleListening,
+                  child: AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      return Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _isListening 
+                              ? const Color(0xFF3b82f6).withOpacity(0.3 + (_pulseController.value * 0.2))
+                              : const Color(0xFF1e293b),
+                          boxShadow: _isListening ? [
+                            BoxShadow(
+                              color: const Color(0xFF3b82f6).withOpacity(0.5),
+                              blurRadius: 20 * _pulseController.value,
+                              spreadRadius: 10 * _pulseController.value,
+                            )
+                          ] : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            )
+                          ],
+                          border: Border.all(
+                            color: _isListening ? const Color(0xFF3b82f6) : Colors.white12,
+                            width: 2,
+                          ),
                         ),
-                      ),
-                      child: Icon(
-                        _isListening ? Icons.square : Icons.mic,
-                        size: _isListening ? 28 : 38,
-                        color: _isListening ? Colors.white : const Color(0xFF3b82f6),
-                      ),
-                    );
-                  },
+                        child: Icon(
+                          _isListening ? Icons.square : Icons.mic,
+                          size: _isListening ? 28 : 38,
+                          color: _isListening ? Colors.white : const Color(0xFF3b82f6),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
+                
+                const SizedBox(height: 16),
+                
+                // Indicateur de statut
+                Text(
+                  _isListening ? "Écoute en cours..." : "Appuyez pour parler",
+                  style: const TextStyle(color: Colors.white54, fontSize: 14),
+                ),
+                
+                // Bouton configuration seulement au démarrage
+                if (_messages.length == 1) ...[
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: () {
+                      const intent = AndroidIntent(
+                        action: 'android.settings.VOICE_INPUT_SETTINGS',
+                      );
+                      intent.launch();
+                    },
+                    icon: const Icon(Icons.settings, color: Color(0xFF3b82f6), size: 16),
+                    label: const Text(
+                      "Définir comme assistant par défaut", 
+                      style: TextStyle(color: Color(0xFF3b82f6), fontSize: 12)
+                    ),
+                  )
+                ]
+              ],
             ),
           ),
         ],
