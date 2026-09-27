@@ -4,7 +4,7 @@ class ApiConfig {
   static const String _keyServerUrl = 'server_base_url';
   
   // URL par défaut sur Render Cloud (24h/24 dans le monde entier)
-  static const String defaultBaseUrl = 'https://koras-backend.onrender.com/api/v1';
+  static const String defaultBaseUrl = 'https://koras.onrender.com/api/v1';
 
   /// Récupère l'URL de base actuelle
   static Future<String> getBaseUrl() async {
