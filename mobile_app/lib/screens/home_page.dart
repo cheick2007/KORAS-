@@ -10,6 +10,7 @@ import 'package:device_apps/device_apps.dart';
 import 'package:telephony/telephony.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 
 class HomePage extends StatefulWidget {
@@ -30,15 +31,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _speechAvailable = false;
   String _currentWords = "";
 
-  final List<Map<String, String>> _messages = [
+  List<Map<String, String>> _messages = [
     {"sender": "assistant", "text": "Bonjour ! Je suis Koras. Que puis-je faire pour vous aujourd'hui ?"}
   ];
 
   final String baseUrl = 'http://192.168.1.5:8080/api/v1';
+  static const platform = MethodChannel('com.koras.assistant/intent');
+  
+  // Par défaut, false. Si c'est lancé via le bouton home, ça passera à true
+  bool _isAssistantMode = false; 
 
   @override
   void initState() {
     super.initState();
+    _checkLaunchMode();
+    _loadMessages();
+
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -46,11 +54,45 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     
     _initSpeech();
     _initTts();
-    
-    // Parle pour souhaiter la bienvenue
-    Future.delayed(const Duration(milliseconds: 500), () {
-      _flutterTts.speak("Bonjour ! Je suis Koras. Que puis-je faire pour vous ?");
-    });
+  }
+
+  Future<void> _loadMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? messagesJson = prefs.getString('saved_messages');
+    if (messagesJson != null) {
+      try {
+        final List<dynamic> decoded = jsonDecode(messagesJson);
+        setState(() {
+          _messages = decoded.map((e) => Map<String, String>.from(e)).toList();
+        });
+      } catch (e) {
+        print("Erreur de chargement des messages: $e");
+      }
+    } else {
+      // Parle pour souhaiter la bienvenue uniquement la toute première fois
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _flutterTts.speak("Bonjour ! Je suis Koras. Que puis-je faire pour vous ?");
+      });
+    }
+  }
+
+  Future<void> _saveMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_messages', jsonEncode(_messages));
+  }
+
+  Future<void> _checkLaunchMode() async {
+    try {
+      final String action = await platform.invokeMethod('getLaunchIntent');
+      if (mounted) {
+        setState(() {
+          // Si action est ASSIST, c'est l'invocation via le bouton Home
+          _isAssistantMode = action == 'android.intent.action.ASSIST';
+        });
+      }
+    } catch (e) {
+      print("Erreur MethodChannel: $e");
+    }
   }
 
   void _initSpeech() async {
@@ -126,6 +168,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       setState(() {
         _messages.add({"sender": "user", "text": userText});
       });
+      _saveMessages();
       _currentWords = ""; // Reset
       
       // Envoyer la commande texte au backend
@@ -350,6 +393,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           _messages.add({"sender": "assistant", "text": responseText});
         });
+        _saveMessages();
       }
       
       // Lecture à haute voix
@@ -360,6 +404,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           _messages.add({"sender": "assistant", "text": "Détail de l'erreur : $e"});
         });
+        _saveMessages();
         await _flutterTts.speak("Une erreur est survenue, veuillez lire le message à l'écran.");
       }
     }
@@ -367,6 +412,207 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    if (_isAssistantMode) {
+      return _buildAssistantBubbleView(context);
+    } else {
+      return _buildFullAppView(context);
+    }
+  }
+
+  Widget _buildFullAppView(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black.withOpacity(0.6), // Fond semi-transparent
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'Assistant Koras',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white70),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Paramètres bientôt disponibles !')),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.white70),
+            onPressed: () {
+              setState(() {
+                _messages = [
+                  {"sender": "assistant", "text": "Bonjour ! Je suis Koras. Que puis-je faire pour vous aujourd'hui ?"}
+                ];
+              });
+              _saveMessages();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white70),
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('auth_token');
+              if (mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                );
+              }
+            },
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          // Bannière pour définir l'assistant par défaut
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1e293b).withOpacity(0.8),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF3b82f6).withOpacity(0.5)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.assistant, color: Color(0xFF3b82f6), size: 32),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    "Définissez Koras comme assistant principal pour l'utiliser avec le bouton d'accueil.",
+                    style: TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    const intent = AndroidIntent(
+                      action: 'android.settings.VOICE_INPUT_SETTINGS',
+                    );
+                    intent.launch();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3b82f6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: const Text("Configurer", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final msg = _messages[index];
+                final isUser = msg["sender"] == "user";
+                return Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.75,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isUser ? const Color(0xFF3b82f6) : const Color(0xFF1e293b),
+                      borderRadius: BorderRadius.circular(24).copyWith(
+                        bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(24),
+                        bottomLeft: !isUser ? const Radius.circular(4) : const Radius.circular(24),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        )
+                      ]
+                    ),
+                    child: Text(
+                      msg["text"]!,
+                      style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          // Affichage en temps réel de ce qui est entendu
+          if (_currentWords.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+              child: Text(
+                '"$_currentWords..."',
+                style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          
+          // Zone du microphone animée
+          Container(
+            padding: const EdgeInsets.only(top: 20, bottom: 40),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF0f172a).withOpacity(0.0),
+                  const Color(0xFF0f172a),
+                ],
+              ),
+            ),
+            child: Center(
+              child: GestureDetector(
+                onTap: _toggleListening,
+                child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    return Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _isListening 
+                            ? const Color(0xFF3b82f6).withOpacity(0.3 + (_pulseController.value * 0.2))
+                            : const Color(0xFF1e293b),
+                        boxShadow: _isListening ? [
+                          BoxShadow(
+                            color: const Color(0xFF3b82f6).withOpacity(0.5),
+                            blurRadius: 20 * _pulseController.value,
+                            spreadRadius: 10 * _pulseController.value,
+                          )
+                        ] : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                        border: Border.all(
+                          color: _isListening ? const Color(0xFF3b82f6) : Colors.white12,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        _isListening ? Icons.square : Icons.mic,
+                        size: _isListening ? 28 : 38,
+                        color: _isListening ? Colors.white : const Color(0xFF3b82f6),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssistantBubbleView(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent, // Complètement transparent pour voir les autres apps
       body: Column(

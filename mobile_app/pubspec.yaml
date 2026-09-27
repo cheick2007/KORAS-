@@ -43,6 +43,7 @@ dependencies:
   permission_handler: ^11.3.1
   device_apps: ^2.2.0
   telephony: ^0.2.0
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

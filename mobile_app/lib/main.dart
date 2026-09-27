@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'screens/home_page.dart';
 
-void main() {
-  runApp(const KorasApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final savedToken = prefs.getString('auth_token');
+  
+  runApp(KorasApp(initialToken: savedToken));
 }
 
 class KorasApp extends StatelessWidget {
-  const KorasApp({super.key});
+  final String? initialToken;
+  const KorasApp({super.key, this.initialToken});
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +27,7 @@ class KorasApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const LoginPage(),
+      home: initialToken != null ? HomePage(token: initialToken!) : const LoginPage(),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -64,6 +70,9 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data['token'];
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', token);
         
         if (mounted) {
           // Navigation vers l'écran principal avec animation douce
